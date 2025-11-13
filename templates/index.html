@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>AI Text → SQL Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="container">
+
+    <h1>Text → SQL</h1>
+    <div class="subtext">Ask your database anything. Gemini generates SQL. MySQL executes it.</div>
+
+    <!-- Query input -->
+    <div class="box">
+        <h3>Ask your database</h3>
+        <textarea id="question" placeholder="e.g., Show total sales by region"></textarea>
+        <button id="askBtn">Run Query</button>
+    </div>
+
+    <!-- SQL output -->
+    <div class="box">
+        <h3>Generated SQL</h3>
+        <pre id="sql">-</pre>
+    </div>
+
+    <!-- Result table -->
+    <div class="box">
+        <h3>Result</h3>
+        <div id="result">-</div>
+    </div>
+
+    <!-- Schema panel -->
+    <div class="box">
+        <h3>Database Schema</h3>
+        <pre id="schema">Loading...</pre>
+    </div>
+
+</div>
+
+<script>
+async function loadSchema() {
+    const r = await fetch("/schema");
+    const d = await r.json();
+    document.getElementById("schema").innerText = d.schema;
+}
+
+async function ask() {
+    const q = document.getElementById("question").value.trim();
+    if (!q) return alert("Please type a question.");
+
+    document.getElementById("sql").innerText = "Thinking...";
+    document.getElementById("result").innerHTML = "Loading...";
+
+    const r = await fetch("/ask", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ question: q })
+    });
+
+    const data = await r.json();
+    document.getElementById("sql").innerText = data.sql || "(none)";
+
+    if (data.error) {
+        document.getElementById("result").innerHTML = `<b>Error:</b> ${data.error}`;
+        return;
+    }
+
+    const cols = data.result.columns;
+    const rows = data.result.rows;
+
+    let html = "<table><tr>";
+    cols.forEach(c => html += `<th>${c}</th>`);
+    html += "</tr>";
+
+    rows.forEach(r => {
+        html += "<tr>";
+        cols.forEach(c => html += `<td>${r[c]}</td>`);
+        html += "</tr>";
+    });
+    html += "</table>";
+
+    document.getElementById("result").innerHTML = html;
+}
+
+document.getElementById("askBtn").addEventListener("click", ask);
+loadSchema();
+</script>
+
+</body>
+</html>
